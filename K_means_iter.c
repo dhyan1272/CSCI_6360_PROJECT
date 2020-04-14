@@ -1,12 +1,12 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include<math.h>
-#define X 300
-#define Y 2
-#define K 3
-#define MAX_ITERS 10
+#define X 300   //X dimession of the data 
+#define Y 2		//Y dimesnion of the data //TODO NEED TO KNOW THE DATA SIZE BEFORE IMPORTING
+#define K 3		//NUMBER OF CLUSTERS TO DIVIDE THE DATA INTO
+#define MAX_ITERS 10  //NUMBER OF ITERATIONS
 
-void findclosestcentroids(double *num, double *init_centroids, int* idx){
+void findclosestcentroids(double *num, double *centroids, int* idx){
 
 	int i, j, l, min_ind; 
 	double sum, dist[K],min_dist;
@@ -15,8 +15,7 @@ void findclosestcentroids(double *num, double *init_centroids, int* idx){
 			sum=0;
 			for (l=0;l<Y;l++){
 
-				//sum=sum+(*num[i][l]-init_centroids[j][l]);
-				sum=sum+(*(num+i*Y+l)-*(init_centroids+j*Y+l))*(*(num+i*Y+l)-*(init_centroids+j*Y+l));
+				sum=sum+(*(num+i*Y+l)-*(centroids+j*Y+l))*(*(num+i*Y+l)-*(centroids+j*Y+l));
 			}
 			//printf("Distance %e\n",sum);
 			dist[j]=sqrt(sum);
@@ -72,22 +71,9 @@ void main(){
 	FILE *fp;
 	double num[X][Y];
 	int    idx[X];
-	double centroids[K][Y];
-	double init_centroids[K][Y]={ {3,3}, {6,2}, {8,5} };
+	double centroids[K][Y]={ {3,3}, {6,2}, {8,5} }; //initialization TODO make it random
 	double num1;
 	int i, j;
-	
-		for(i=0; i<K;i++){
-
-			for(j=0; j<Y;j++){
-
-				centroids[i][j]=0.0;
-
-			}
-
-		}
-	
-
 	fp=fopen("data.txt","r");
 	if(fp==NULL) {
 		printf("Exiting no file with such name \n");
@@ -103,15 +89,17 @@ void main(){
 		//printf("\n");
 	}
 	fclose(fp);
-	//printf("Double deref %e Single deref %p NO deref %p\n",**init_centroids, *init_centroids, init_centroids);
+	//printf("Double deref %e Single deref %p NO deref %p\n",**centroids, *centroids, centroids);
 
-	
+	for (i=0; i<MAX_ITERS; i++){
 
-		findclosestcentroids((double *)num, (double *)init_centroids, &idx[0]);
+		findclosestcentroids((double *)num, (double *)centroids, &idx[0]);
 			//for(int i=0; i<X; i++)  printf(" %d %d\n", i+1, idx[i]);  //Just for debugging
 		computeCentroids((double *)num, &idx[0], (double *)centroids);
 
+	}
 	
+	//Printing the final centroids
 	for(i=0; i<K;i++){
 			for(j=0; j<Y;j++){
 
@@ -121,5 +109,4 @@ void main(){
 		printf("\n");
 	}
 	
-
 }
