@@ -4,7 +4,7 @@
 #define X 300   //X dimession of the data 
 #define Y 2		//Y dimesnion of the data //TODO NEED TO KNOW THE DATA SIZE BEFORE IMPORTING
 #define K 3		//NUMBER OF CLUSTERS TO DIVIDE THE DATA INTO
-#define MAX_ITERS 10  //NUMBER OF ITERATIONS
+#define MAX_ITERS 1  //NUMBER OF ITERATIONS
 
 void findclosestcentroids(double *num, double *centroids, int* idx){
 
@@ -17,7 +17,7 @@ void findclosestcentroids(double *num, double *centroids, int* idx){
 
 				sum=sum+(*(num+i*Y+l)-*(centroids+j*Y+l))*(*(num+i*Y+l)-*(centroids+j*Y+l));
 			}
-			//printf("Distance %e\n",sum);
+			printf("Distance OF %d %e\n",i, sum);
 			dist[j]=sqrt(sum);
 
 		}
@@ -68,7 +68,7 @@ void computeCentroids(double* num, int* idx, double* centroids){
 }
 void main(){
 
-	FILE *fp;
+	FILE *fp, *fw;
 	double num[X][Y];
 	int    idx[X];
 	double centroids[K][Y]={ {3,3}, {6,2}, {8,5} }; //initialization TODO make it random
@@ -99,7 +99,16 @@ void main(){
 
 	}
 	
-	//Printing the final centroids
+	//Only the centroids
+	fw=fopen("output.txt","w");
+
+	//printing the closest centroid indices
+	for(i=0; i<X;i++){
+
+				printf("%d %d \n",i+1, idx[i]+1);
+
+	}
+	//Printing only the final centroids
 	for(i=0; i<K;i++){
 			for(j=0; j<Y;j++){
 
@@ -108,5 +117,10 @@ void main(){
 			}
 		printf("\n");
 	}
+
+
+	//Writing to data for image
+
+	fclose(fw);
 	
 }
