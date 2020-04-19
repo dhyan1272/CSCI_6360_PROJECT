@@ -17,7 +17,7 @@ void findclosestcentroids(double *num, double *centroids, int* idx){
 
 				sum=sum+(*(num+i*Y+l)-*(centroids+j*Y+l))*(*(num+i*Y+l)-*(centroids+j*Y+l));
 			}
-			printf("Distance %e\n",sum);
+			printf("Distance OF %d %e\n",i, sum);
 			dist[j]=sqrt(sum);
 
 		}
@@ -101,6 +101,13 @@ void main(){
 	
 	//Only the centroids
 	fw=fopen("output.txt","w");
+
+	//printing the closest centroid indices
+	for(i=0; i<X;i++){
+
+				printf("%d %d \n",i+1, idx[i]+1);
+
+	}
 	//Printing only the final centroids
 	for(i=0; i<K;i++){
 			for(j=0; j<Y;j++){
@@ -111,15 +118,8 @@ void main(){
 		printf("\n");
 	}
 
+
 	//Writing to data for image
-	for(i=0; i<K;i++){
-		for(j=0; j<Y;j++){
-
-			printf("%lf  ",centroids[i][j]);
-
-		}
-		printf("\n");
-	}
 
 	fclose(fw);
 	
