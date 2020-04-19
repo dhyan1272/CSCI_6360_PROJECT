@@ -52,7 +52,7 @@ void findclosestcentroids(double* num, double* centroids_c, int* idx){
 	
 }
 
-__global__
+
 void computeCentroids(double* num, int* idx, double* centroids){
 
 	int i,j, l, m, count;
@@ -137,7 +137,7 @@ int main(){
 
 		findclosestcentroids<<< n_blocks, no_of_threads>>>(num, &centroids_c[0], &idx[0]);
 		cudaDeviceSynchronize();
-		computeCentroids<<<n_blocks, no_of_threads>>>(num, &idx[0], &centroids_c[0]);
+		computeCentroids(num, &idx[0], &centroids_c[0]);
 
 	}
 	
