@@ -3,6 +3,7 @@
 #include<math.h>
 #include<cuda.h>
 #include<cuda_runtime.h>
+#include<time.h>
 #define X 300  //X dimession of the data 
 #define Y 2		//Y dimesnion of the data //TODO NEED TO KNOW THE DATA SIZE BEFORE IMPORTING
 #define K 3		//NUMBER OF CLUSTERS TO DIVIDE THE DATA INTO
@@ -25,90 +26,126 @@ void findclosestcentroids(double* num, double* centroids_c, int* idx){
 		double sum, dist[K],min_dist;
 		
 		for (j=0;j<K;j++){
-			
 			sum=0;
 			for (l=0;l<Y;l++){
-
 					sum=sum+(*(num+x*Y+l)-*(centroids_c+j*Y+l))*(*(num+x*Y+l)-*(centroids_c+j*Y+l));
-
 			}
 			dist[j]=sqrt(sum);
-			printf("Distance of %d %e\n", index, sum);
+			//printf("Distance of %d %e\n", index, sum);
 		}
 		min_dist=dist[0];
 		min_ind=0;
 		for (j=0; j<K; j++){
-			
 			if (dist[j]<min_dist) {
-
 				min_dist=dist[j];
 				min_ind=j;
-
 			}
 		}
 		*(idx+x)=min_ind;
 		offset++;
 	}
-	
 }
 
+//template <unsigned int blockSize>
+//note that double is slow in cuda as compared to real
+__global__ void reduce(double *g_idata, double *g_odata, int *g_odata_count, unsigned int n, int blockSize, int *idx, int cl, int m)
+{
+  unsigned int tid = threadIdx.x;
+  unsigned int i = blockIdx.x*(blockSize*2) + tid;
+  if (idx[i]==cl) {
+    extern __shared__ double sdata[];
+    extern __shared__ int sdata_count[];
 
-void computeCentroids(double* num, int* idx, double* centroids){
+    //unsigned int tid = threadIdx.x;
+    //unsigned int i = blockIdx.x*(blockSize*2) + tid;
+    unsigned int gridSize = blockSize*2*gridDim.x;
+    sdata[tid] = 0;
+    sdata_count[tid] = 0;
 
-	int i,j, l, m, count;
-	double sum[Y];
-	for(i=0;i<Y;i++) sum[i]=0.0;
+    while (i < n) {
+      sdata[tid] += g_idata[(i*Y+m)] + g_idata[(i*Y+m)+blockSize];
+      sdata_count[tid] += 2; 
+      i += gridSize;
+    }
+    __syncthreads();
 
-	for (i=0;i<K;i++){
+    if (blockSize >= 512) { if (tid < 256) { sdata[tid] += sdata[tid + 256]; sdata_count[tid] += sdata_count[tid + 256] ;} __syncthreads(); }
+    //if (blockSize >= 512) { if (tid < 256) { sdata[tid] += sdata[tid + 256]; } __syncthreads(); }
 
-		count=0;
-		for(m=0;m<Y;m++) sum[m]=0.0;
+    if (blockSize >= 256) { if (tid < 128) { sdata[tid] += sdata[tid + 128]; sdata_count[tid] += sdata_count[tid + 128]; } __syncthreads(); }
+    //if (blockSize >= 256) { if (tid < 128) { sdata[tid] += sdata[tid + 128]; } __syncthreads(); }
 
-		for(j =0; j<X; j++){
+    if (blockSize >= 128) { if (tid <   64) { sdata[tid] += sdata[tid +   64]; sdata_count[tid] += sdata_count[tid +   64]; } __syncthreads(); }
+    //if (blockSize >= 128) { if (tid <   64) { sdata[tid] += sdata[tid +   64]; } __syncthreads(); }
+    
+    if (tid < 32) {
+        if (blockSize >=  64) sdata[tid] += sdata[tid + 32];
+        if (blockSize >=  32) sdata[tid] += sdata[tid + 16];
+        if (blockSize >=  16) sdata[tid] += sdata[tid +  8];
+        if (blockSize >=  8) sdata[tid] += sdata[tid +  4];
+        if (blockSize >=  4) sdata[tid] += sdata[tid +  2];
+        if (blockSize >=  2) sdata[tid] += sdata[tid +  1];
 
-			if(idx[j]==i){
+        if (blockSize >=  64) sdata_count[tid] += sdata_count[tid + 32];
+        if (blockSize >=  32) sdata_count[tid] += sdata_count[tid + 16];
+        if (blockSize >=  16) sdata_count[tid] += sdata_count[tid +  8];
+        if (blockSize >=  8) sdata_count[tid] += sdata_count[tid +  4];
+        if (blockSize >=  4) sdata_count[tid] += sdata_count[tid +  2];
+        if (blockSize >=  2) sdata_count[tid] += sdata_count[tid +  1];
+    }
 
-					count++;
-					for (l=0;l<Y;l++){
+    if (tid == 0) g_odata[blockIdx.x] = sdata[0];
+    if (tid == 0) g_odata_count[blockIdx.x] = sdata_count[0];
+  }
+}
 
-						sum[l]=sum[l]+ *(num+j*Y+l);
-					
-					}
-			
-			}
+void computeCentroids(double* num, int* idx, double* centroids, int blockSize, int n_blocks) {
+  int i, l, m, count;
+//  int j;
+  double sum[Y];
+  for (i=0; i<Y; i++) sum[i] = 0.0;
+  for (i=0; i<K; i++) {
+    count=0;
+    for (m=0; m<Y; m++) {
+      sum[m] = 0.0;
+      reduce<<< n_blocks, blockSize>>>(num, &sum[m], &count, X, blockSize, idx, i, m);
+//      for (j =0; j<X; j++) {
+//        if(idx[j]==i) count++;
+//	  for (l=0;l<Y;l++) sum[l]=sum[l]+ *(num+j*Y+l);
+//      }
+    }
 
-		}
-		printf("COunts is %d \n", count);
-		for (l=0;l<Y;l++){
-
-			*(centroids+i*Y+l)=sum[l]/count;					
-		}
-	} 
-
+    printf("sum1 %f, sum2 %f, count %d \n", sum[0], sum[1], count);
+    for (l=0;l<Y;l++) *(centroids+i*Y+l)=sum[l]/count;
+  }
 }
 
 int main(){
+	/*To generate random centroids
+        srand(time(0)); 
+	for(int i = 0; i<K; i++) {
+	  for(int i = 0; i<Y; i++) centroids[i][j] = rand()%10;
+	}
+	*/
 
-	FILE *fp;
-
-	//initialization TODO make it random
 	double centroids[K][Y]={{3,3},{6,2},{8,5}};
-
 	double num1;
 	int i, j, n_blocks, no_of_threads;
-	
 	no_of_threads=32;
+	n_blocks = (X*Y + no_of_threads - 1)/no_of_threads;
+/*
 	if (no_of_threads==(X*Y))
         n_blocks = (X*Y)/no_of_threads; //calculation of number of blocks baseds on threadscounts and world size
     else 
         n_blocks = (X*Y)/no_of_threads+1;;
-
+*/
 	//Initializing CUDA memory 
 	cudaMallocManaged(&num, sizeof(double)*X*Y);
 	cudaMallocManaged(&centroids_c, sizeof(double)*K*Y);
 	cudaMallocManaged(&idx, sizeof(int)*X);
 
 	//Opening file and loading data into CUDA memory.
+	FILE *fp;
 	fp=fopen("data.txt","r");
 	if(fp==NULL) {
 		printf("Exiting no file with such name \n");
@@ -119,9 +156,7 @@ int main(){
 		for (j=0;j<Y;j++){
 			fscanf(fp,"%lf", &num1);
 			num[i*Y+j]=num1;
-			//printf(" %.15lf ", num1);  //Just for debugging
 		}
-		//printf("\n");
 	}
 	fclose(fp);
 
@@ -129,22 +164,17 @@ int main(){
 	for (i=0;i<K;i++){
 		for (j=0;j<Y;j++){
 			centroids_c[i*Y+j]=centroids[i][j];
-			//printf(" %.15lf ", centroids_c[i*Y+j]);  //Just for debugging
 		}
-		//printf("\n");
 	}
-	for (i=0;i<MAX_ITERS;i++){
 
+	for (i=0;i<MAX_ITERS;i++){
 		findclosestcentroids<<< n_blocks, no_of_threads>>>(num, &centroids_c[0], &idx[0]);
 		cudaDeviceSynchronize();
-		computeCentroids(num, &idx[0], &centroids_c[0]);
-
+		computeCentroids(num, &idx[0], &centroids_c[0], no_of_threads, n_blocks);
 	}
 	
-	for (i=0;i<X;i++){
-
-		printf("%d===%d \n",i+1, idx[i]+1);
-	}
+	//for (i=0;i<X;i++){
+	//	printf("%d===%d \n",i+1, idx[i]+1);
+	//}
 	return 0;
-
 }

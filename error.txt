@@ -1,0 +1,31 @@
+(cuda-gdb) s
+reduce (__cuda_0=0x7fff80000000, __cuda_1=0x7fffffffda38, __cuda_2=0x7fffffffda34, __cuda_3=300, __cuda_4=32, 
+    __cuda_5=0x7fff80001600, __cuda_6=0, __cuda_7=0) at K_means_iter.cu:52
+52	{
+
+(cuda-gdb) s
+__device_stub__Z6reducePdS_PijiS0_ii (__par0=0x7fff80000000, __par1=0x7fffffffda38, __par2=0x7fffffffda34, __par3=300, 
+    __par4=32, __par5=0x7fff80001600, __par6=0, __par7=0) at /tmp/tmpxft_000187cb_00000000-5_K_means_iter.cudafe1.stub.c:1
+1	/tmp/tmpxft_000187cb_00000000-5_K_means_iter.cudafe1.stub.c: No such file or directory.
+
+(cuda-gdb) s
+cudaLaunchKernel<char> (func=0x100046b8 <reduce(double*, double*, int*, unsigned int, int, int*, int, int)> "\n\020@<", 
+    gridDim=..., blockDim=..., args=0x7fffffffd8a8, sharedMem=0, stream=0x0)
+    at /usr/local/cuda-10.1/bin/../targets/ppc64le-linux/include/cuda_runtime.h:209
+209	    return ::cudaLaunchKernel((const void *)func, gridDim, blockDim, args, sharedMem, stream);
+(cuda-gdb) 
+
+CUDA Exception: Warp Out-of-range Address
+The exception was triggered at PC 0x1075a8b0
+
+Thread 1 "a.out" received signal CUDA_EXCEPTION_5, Warp Out-of-range Address.
+[Switching focus to CUDA kernel 0, grid 2, block (0,0,0), thread (0,0,0), device 0, sm 0, warp 1, lane 0]
+0x000000001075a950 in reduce(double*, double*, int*, unsigned int, int, int*, int, int)<<<(19,1,1),(32,1,1)>>> ()
+(cuda-gdb) 
+Single stepping until exit from function _Z6reducePdS_PijiS0_ii,
+which has no line number information.
+[Thread 0x7fffdfffeef0 (LWP 100764) exited]
+[Thread 0x7ffff08beef0 (LWP 100763) exited]
+
+Program terminated with signal SIGKILL, Killed.
+The program no longer exists.
