@@ -53,20 +53,24 @@ void findclosestcentroids(double* num, double* centroids_c, int* idx){
 }
 
 __global__
-void computeCentroids(double* num, int* idx, double* centroids){
+void computeCentroids(double* num, int* idx, double* centroids_c){
 
-	int i,j, l, m, count;
-	double sum[Y];
-	for(i=0;i<Y;i++) sum[i]=0.0;
+	
+	int index=blockIdx.x*blockDim.x+threadIdx.x;
+	int stride=blockDim.x*gridDim.x;
+	int offset=0; //offset keeps track if the same thread (number enters the loop the next time, as the thread id will be same)
+	
+	int i, m, j, l, count;
+	double sum[Y]; 					//for(i=0;i<Y;i++) sum[i]=0.0;//is it reqd ?
+	for(int i=index; i<K; i+=stride){
 
-	for (i=0;i<K;i++){
-
+		int x=index+offset*stride;
 		count=0;
 		for(m=0;m<Y;m++) sum[m]=0.0;
 
 		for(j =0; j<X; j++){
 
-			if(idx[j]==i){
+			if(idx[j]==x){
 
 					count++;
 					for (l=0;l<Y;l++){
@@ -81,9 +85,9 @@ void computeCentroids(double* num, int* idx, double* centroids){
 		printf("COunts is %d \n", count);
 		for (l=0;l<Y;l++){
 
-			*(centroids+i*Y+l)=sum[l]/count;					
+			*(centroids_c+x*Y+l)=sum[l]/count;					
 		}
-	} 
+	}
 
 }
 
@@ -137,13 +141,23 @@ int main(){
 
 		findclosestcentroids<<< n_blocks, no_of_threads>>>(num, &centroids_c[0], &idx[0]);
 		cudaDeviceSynchronize();
-		computeCentroids<<<n_blocks, no_of_threads>>>(num, &idx[0], &centroids_c[0]);
+		computeCentroids<<<1,32>>>(num, &idx[0], &centroids_c[0]);
+		cudaDeviceSynchronize();
 
 	}
 	
 	for (i=0;i<X;i++){
 
 		printf("%d===%d \n",i+1, idx[i]+1);
+	}
+
+	for(i=0; i<K;i++){
+			for(j=0; j<Y;j++){
+
+				printf("Centroids using CUDA %lf  ",*(centroids_c+i*Y+j));
+
+			}
+		printf("\n");
 	}
 	return 0;
 

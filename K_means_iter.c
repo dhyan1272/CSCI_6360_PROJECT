@@ -111,16 +111,6 @@ void main(){
 		printf("\n");
 	}
 
-	//Writing to data for image
-	for(i=0; i<K;i++){
-		for(j=0; j<Y;j++){
-
-			printf("%lf  ",centroids[i][j]);
-
-		}
-		printf("\n");
-	}
-
 	fclose(fw);
 	
 }
