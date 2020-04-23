@@ -1,8 +1,27 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include<mpi.h>
+#include<unistd.h>
+
+typedef unsigned long long ticks;
+
+static __inline__ ticks getticks(void)
+{
+  unsigned int tbl, tbu0, tbu1;
+
+  do {
+    __asm__ __volatile__ ("mftbu %0" : "=r"(tbu0));
+    __asm__ __volatile__ ("mftb %0" : "=r"(tbl));
+    __asm__ __volatile__ ("mftbu %0" : "=r"(tbu1));
+  } while (tbu0 != tbu1);
+
+  return (((unsigned long long)tbu0) << 32) | tbl;
+}
 
 int main(int argc, char *argv[]) {
+
+	unsigned long long start = 0;
+	unsigned long long finish = 0;
 
 	int myrank = 0;
     int numranks = 0;
@@ -17,6 +36,10 @@ int main(int argc, char *argv[]) {
     }
 
     int filesize = atoi(argv[1]);
+
+    if (myrank == 0) {
+    	start = getticks();
+    }
 
     MPI_Init(&argc, &argv);
 
@@ -40,9 +63,14 @@ int main(int argc, char *argv[]) {
 
     MPI_File_close(&fh);
 
+    if (myrank == 0) {
+    	finish = getticks();
+    	printf("Time taken to perform write operation: %llu ticks\n", (finish-start));
+    }
+
 	MPI_Finalize();
 
 	free(buf);
 
-    return 1;
+    return 0;
 }
