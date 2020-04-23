@@ -1,2 +1,2 @@
-all: gol-main.c
-	mpicc -g gol-main.c -o gol-main.o
+all: parallelio.c
+	mpicc -g parallelio.c -o parallelio.o

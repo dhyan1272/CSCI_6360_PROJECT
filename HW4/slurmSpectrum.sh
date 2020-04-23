@@ -22,11 +22,5 @@ module load gcc/7.4.0/1
 module load spectrum-mpi
 module load cuda
 
-for blockSize in 128000 256000 512000 1000000 2000000 4000000 8000000 16000000
-do
-
-echo ' blockSize: '	$blockSize
-
-mpirun -hostfile /tmp/hosts.$SLURM_JOB_ID -np $SLURM_NPROCS ~/barn/dev/assignment4/gol-main.o $blockSize   
+mpirun -hostfile /tmp/hosts.$SLURM_JOB_ID -np $SLURM_NPROCS ~/scratch/parallelio.o 128000 
 rm /tmp/hosts.$SLURM_JOB_ID
-done
