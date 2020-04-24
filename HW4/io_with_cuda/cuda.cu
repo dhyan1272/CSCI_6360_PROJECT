@@ -18,6 +18,9 @@
 // Buffer
 extern int *buf;
 
+/*
+* Returns the inialized buffer on CUDA
+*/
 extern "C" void getBuffer( int rank, int numranks, int filesize )
 {
     // Check and assign the device for this MPI rank
@@ -36,5 +39,6 @@ extern "C" void getBuffer( int rank, int numranks, int filesize )
         exit(-1);
 	}
 
+	// Assign memory to the buf variable
 	cudaMallocManaged(&buf, filesize);
 }
