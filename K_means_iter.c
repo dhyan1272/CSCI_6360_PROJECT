@@ -1,10 +1,13 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include<math.h>
-#define X 300   //X dimession of the data 
-#define Y 2		//Y dimesnion of the data //TODO NEED TO KNOW THE DATA SIZE BEFORE IMPORTING
-#define K 3		//NUMBER OF CLUSTERS TO DIVIDE THE DATA INTO
+#include<time.h>
+#define X 1049088   //X dimession of the data 
+#define Y 3			//Y dimesnion of the data //TODO NEED TO KNOW THE DATA SIZE BEFORE IMPORTING
+#define K 3			//NUMBER OF CLUSTERS TO DIVIDE THE DATA INTO
 #define MAX_ITERS 1  //NUMBER OF ITERATIONS
+double *num;
+double* centroids;
 
 void findclosestcentroids(double *num, double *centroids, int* idx){
 
@@ -17,7 +20,7 @@ void findclosestcentroids(double *num, double *centroids, int* idx){
 
 				sum=sum+(*(num+i*Y+l)-*(centroids+j*Y+l))*(*(num+i*Y+l)-*(centroids+j*Y+l));
 			}
-			printf("Distance %e\n",sum);
+			//printf("Distance %e\n",sum);
 			dist[j]=sqrt(sum);
 
 		}
@@ -69,12 +72,22 @@ void computeCentroids(double* num, int* idx, double* centroids){
 void main(){
 
 	FILE *fp, *fw;
-	double num[X][Y];
-	int    idx[X];
-	double centroids[K][Y]={ {3,3}, {6,2}, {8,5} }; //initialization TODO make it random
 	double num1;
-	int i, j;
-	fp=fopen("data.txt","r");
+	int i, j,k,rnd_num;
+	num=(double*)calloc(X*Y, sizeof(double));
+	centroids=(double*)calloc(K*Y,sizeof(double));
+	int lower=1;
+	int upper =X;
+	srand(time(0));
+	int    idx[X];
+	/*
+	double centroids[K][Y]={ {0.321568627450980, 0.372549019607843, 0.337254901960784},
+							 {0.0431372549019608, 0.00392156862745098, 0.0352941176470588}, 
+							 {0.117647058823529, 0.105882352941176, 0.0705882352941177} };
+							 //initialization TODO make it random
+	*/
+
+	fp=fopen("input.txt","r");
 	if(fp==NULL) {
 		printf("Exiting no file with such name \n");
 		exit(-1);
@@ -83,12 +96,25 @@ void main(){
 	for (i=0;i<X;i++){
 		for (j=0;j<Y;j++){
 			fscanf(fp,"%lf", &num1);
-			num[i][j]=num1;
+			*(num+i*Y+j)=num1;
 			//printf(" %.15lf ", num[i][j]);
 		}
 		//printf("\n");
 	}
 	fclose(fp);
+
+	for (i = 0; i < K; i++) {
+
+			rnd_num = (rand()%(upper-lower + 1)) + lower;
+			printf("%d ", rnd_num);  
+			for (j=0;j<Y;j++){ 
+        		*(centroids+i*Y+j) = *(num+rnd_num*Y+j); 
+        		printf("%e  ", *(centroids+i*Y+j));
+        		printf("%e  ", *(centroids+i*Y+j)); 
+        	} 
+        printf("\n");
+    }
+
 	//printf("Double deref %e Single deref %p NO deref %p\n",**centroids, *centroids, centroids);
 
 	for (i=0; i<MAX_ITERS; i++){
@@ -98,19 +124,35 @@ void main(){
 		computeCentroids((double *)num, &idx[0], (double *)centroids);
 
 	}
-	
-	//Only the centroids
-	fw=fopen("output.txt","w");
-	//Printing only the final centroids
-	for(i=0; i<K;i++){
-			for(j=0; j<Y;j++){
 
-				printf("%lf  ",centroids[i][j]);
+	for (i=0; i<X;i++){
+		//printf("%d==%d\n",i+1, idx[i]+1);
 
+		for (k=0;k<K;k++){
+
+			if (idx[i]==k){
+
+					for (j=0;j<Y;j++){			
+						*(num+i*Y+j)=*(centroids+k*Y+j);
+					}
 			}
-		printf("\n");
-	}
+				
+		}
 
+	}
+	fw=fopen("output.txt","w");
+	
+	for(i=0; i<X;i++){
+	
+		for(j=0; j<Y;j++){
+
+				fprintf(fw,"%lf  ",*(num+i*Y+j));
+				//	printf("%lf  ",num[i][j]);
+			}
+		fprintf(fw, "\n");
+		//printf("\n");
+	}
 	fclose(fw);
+	free (num);
 	
 }
