@@ -20,8 +20,11 @@ static __inline__ ticks getticks(void)
 
 int main(int argc, char *argv[]) {
 
-	unsigned long long start = 0;
-	unsigned long long finish = 0;
+	unsigned long long write_start = 0;
+	unsigned long long write_finish = 0;
+
+	unsigned long long read_start = 0;
+	unsigned long long read_finish = 0;
 
 	int myrank = 0;
     int numranks = 0;
@@ -37,10 +40,6 @@ int main(int argc, char *argv[]) {
 
     int filesize = atoi(argv[1]);
 
-    if (myrank == 0) {
-    	start = getticks();
-    }
-
     MPI_Init(&argc, &argv);
 
     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
@@ -49,6 +48,10 @@ int main(int argc, char *argv[]) {
     int* buf = malloc(filesize);
 
     int block_count = filesize/sizeof(int);
+
+    if (myrank == 0) {
+    	write_start = getticks();
+    }
 
     for (int i=0; i<block_count; i++) { buf[i] = 1; }
 
@@ -64,8 +67,33 @@ int main(int argc, char *argv[]) {
     MPI_File_close(&fh);
 
     if (myrank == 0) {
-    	finish = getticks();
-    	printf("Time taken to perform write operation: %llu ticks\n", (finish-start));
+    	write_finish = getticks();
+    	printf("Time taken to perform write operation: %llu ticks\n", (write_finish - write_start));
+    }
+
+    free(buf);
+
+    buf = malloc(filesize);
+
+    if (myrank == 0) {
+    	read_start = getticks();
+    }
+
+  	MPI_File_open(MPI_COMM_WORLD, "datafile.txt", MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
+  	MPI_File_set_view(fh, 0, MPI_INT, MPI_INT, "native", MPI_INFO_NULL);
+
+	for (int i = 0; i < 64; i++) {
+		int read_index = filesize*myrank + filesize*numranks*i; 
+		MPI_File_read_at(fh, read_index, buf, block_count, MPI_INT, &status);
+	}
+
+	MPI_Barrier(MPI_COMM_WORLD);
+
+	MPI_File_close(&fh);
+
+    if (myrank == 0) {
+    	read_finish = getticks();
+    	printf("Time taken to perform read operation: %llu ticks\n", (read_finish - read_start));
     }
 
 	MPI_Finalize();
