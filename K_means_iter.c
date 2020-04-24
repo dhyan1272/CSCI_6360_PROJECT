@@ -2,9 +2,9 @@
 #include<stdlib.h>
 #include<math.h>
 #include<time.h>
-#define X 1049088   //X dimession of the data 
+#define X 331240   //X dimession of the data 
 #define Y 3			//Y dimesnion of the data //TODO NEED TO KNOW THE DATA SIZE BEFORE IMPORTING
-#define K 3			//NUMBER OF CLUSTERS TO DIVIDE THE DATA INTO
+#define K 5			//NUMBER OF CLUSTERS TO DIVIDE THE DATA INTO
 #define MAX_ITERS 1  //NUMBER OF ITERATIONS
 double *num;
 double* centroids;
@@ -61,7 +61,7 @@ void computeCentroids(double* num, int* idx, double* centroids){
 			}
 
 		}
-		printf("COunts is %d \n", count);
+		//printf("COunts is %d \n", count);
 		for (l=0;l<Y;l++){
 
 			*(centroids+i*Y+l)=sum[l]/count;					
@@ -76,17 +76,10 @@ void main(){
 	int i, j,k,rnd_num;
 	num=(double*)calloc(X*Y, sizeof(double));
 	centroids=(double*)calloc(K*Y,sizeof(double));
+	int    idx[X];
 	int lower=1;
 	int upper =X;
 	srand(time(0));
-	int    idx[X];
-	/*
-	double centroids[K][Y]={ {0.321568627450980, 0.372549019607843, 0.337254901960784},
-							 {0.0431372549019608, 0.00392156862745098, 0.0352941176470588}, 
-							 {0.117647058823529, 0.105882352941176, 0.0705882352941177} };
-							 //initialization TODO make it random
-	*/
-
 	fp=fopen("input.txt","r");
 	if(fp==NULL) {
 		printf("Exiting no file with such name \n");
@@ -97,9 +90,7 @@ void main(){
 		for (j=0;j<Y;j++){
 			fscanf(fp,"%lf", &num1);
 			*(num+i*Y+j)=num1;
-			//printf(" %.15lf ", num[i][j]);
 		}
-		//printf("\n");
 	}
 	fclose(fp);
 
@@ -109,8 +100,6 @@ void main(){
 			printf("%d ", rnd_num);  
 			for (j=0;j<Y;j++){ 
         		*(centroids+i*Y+j) = *(num+rnd_num*Y+j); 
-        		printf("%e  ", *(centroids+i*Y+j));
-        		printf("%e  ", *(centroids+i*Y+j)); 
         	} 
         printf("\n");
     }
@@ -120,9 +109,17 @@ void main(){
 	for (i=0; i<MAX_ITERS; i++){
 
 		findclosestcentroids((double *)num, (double *)centroids, &idx[0]);
-			//for(int i=0; i<X; i++)  printf(" %d %d\n", i+1, idx[i]);  //Just for debugging
 		computeCentroids((double *)num, &idx[0], (double *)centroids);
 
+	}
+
+	for(i=0; i<K;i++){
+			for(j=0; j<Y;j++){
+
+				printf("Centroids not using CUDA %lf  ",*(centroids+i*Y+j));
+
+			}
+		printf("\n");
 	}
 
 	for (i=0; i<X;i++){
@@ -154,5 +151,6 @@ void main(){
 	}
 	fclose(fw);
 	free (num);
+	free (centroids);
 	
 }

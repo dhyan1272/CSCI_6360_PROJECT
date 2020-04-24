@@ -3,8 +3,8 @@
 #include<math.h>
 #include<cuda.h>
 #include<cuda_runtime.h>
-#define X 300  //X dimession of the data 
-#define Y 2		//Y dimesnion of the data //TODO NEED TO KNOW THE DATA SIZE BEFORE IMPORTING
+#define X 1049088  //X dimession of the data 
+#define Y 3		//Y dimesnion of the data //TODO NEED TO KNOW THE DATA SIZE BEFORE IMPORTING
 #define K 3		//NUMBER OF CLUSTERS TO DIVIDE THE DATA INTO
 #define MAX_ITERS 1  //NUMBER OF ITERATIONS
 
@@ -33,7 +33,7 @@ void findclosestcentroids(double* num, double* centroids_c, int* idx){
 
 			}
 			dist[j]=sqrt(sum);
-			printf("Distance of %d %e\n", index, sum);
+			//printf("Distance of %d %e\n", index, sum);
 		}
 		min_dist=dist[0];
 		min_ind=0;
@@ -60,7 +60,7 @@ void computeCentroids(double* num, int* idx, double* centroids_c){
 	int stride=blockDim.x*gridDim.x;
 	int offset=0; //offset keeps track if the same thread (number enters the loop the next time, as the thread id will be same)
 	
-	int i, m, j, l, count;
+	int  m, j, l, count;
 	double sum[Y]; 					//for(i=0;i<Y;i++) sum[i]=0.0;//is it reqd ?
 	for(int i=index; i<K; i+=stride){
 
@@ -93,13 +93,14 @@ void computeCentroids(double* num, int* idx, double* centroids_c){
 
 int main(){
 
-	FILE *fp;
+	FILE *fp, *fw;
 
-	//initialization TODO make it random
-	double centroids[K][Y]={{3,3},{6,2},{8,5}};
+	int lower=1;
+	int upper =X;
+	srand(time(0));
 
 	double num1;
-	int i, j, n_blocks, no_of_threads;
+	int i, j, k, n_blocks, no_of_threads,rnd_num;
 	
 	no_of_threads=32;
 	if (no_of_threads==(X*Y))
@@ -113,7 +114,7 @@ int main(){
 	cudaMallocManaged(&idx, sizeof(int)*X);
 
 	//Opening file and loading data into CUDA memory.
-	fp=fopen("data.txt","r");
+	fp=fopen("input.txt","r");
 	if(fp==NULL) {
 		printf("Exiting no file with such name \n");
 		exit(-1);
@@ -129,14 +130,16 @@ int main(){
 	}
 	fclose(fp);
 
-	//Loading the 2-dimensional centroid Initialization data into a 1D VECTOR for CUDA. 
-	for (i=0;i<K;i++){
-		for (j=0;j<Y;j++){
-			centroids_c[i*Y+j]=centroids[i][j];
-			//printf(" %.15lf ", centroids_c[i*Y+j]);  //Just for debugging
-		}
-		//printf("\n");
-	}
+	for (i = 0; i < K; i++) {
+
+			rnd_num = (rand()%(upper-lower + 1)) + lower;
+			printf("%d ", rnd_num);  
+			for (j=0;j<Y;j++){ 
+        		*(centroids_c+i*Y+j) = *(num+rnd_num*Y+j); 
+        	} 
+        printf("\n");
+    }
+
 	for (i=0;i<MAX_ITERS;i++){
 
 		findclosestcentroids<<< n_blocks, no_of_threads>>>(num, &centroids_c[0], &idx[0]);
@@ -146,10 +149,6 @@ int main(){
 
 	}
 	
-	for (i=0;i<X;i++){
-
-		printf("%d===%d \n",i+1, idx[i]+1);
-	}
 
 	for(i=0; i<K;i++){
 			for(j=0; j<Y;j++){
@@ -159,6 +158,37 @@ int main(){
 			}
 		printf("\n");
 	}
+
+	for (i=0; i<X;i++){
+		//printf("%d==%d\n",i+1, idx[i]+1);
+
+		for (k=0;k<K;k++){
+
+			if (idx[i]==k){
+
+					for (j=0;j<Y;j++){			
+						*(num+i*Y+j)=*(centroids_c+k*Y+j);
+					}
+			}
+				
+		}
+
+	}
+	fw=fopen("output.txt","w");
+	
+	for(i=0; i<X;i++){
+	
+		for(j=0; j<Y;j++){
+
+				fprintf(fw,"%lf  ",*(num+i*Y+j));
+				//	printf("%lf  ",num[i][j]);
+			}
+		fprintf(fw, "\n");
+		//printf("\n");
+	}
+	cudaFree(num);
+	cudaFree(centroids_c);
+	cudaFree(idx);
 	return 0;
 
 }
