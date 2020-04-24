@@ -22,5 +22,5 @@ module load gcc/7.4.0/1
 module load spectrum-mpi
 module load cuda
 
-mpirun -hostfile /tmp/hosts.$SLURM_JOB_ID -np $SLURM_NPROCS ~/scratch/parallelio-cuda-exe 2
+mpirun -hostfile /tmp/hosts.$SLURM_JOB_ID -np $SLURM_NPROCS ~/scratch/parallelio-cuda-exe 128000
 rm /tmp/hosts.$SLURM_JOB_ID

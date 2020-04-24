@@ -20,7 +20,7 @@ typedef unsigned long long ticks;
 int *buf;
 
 // Access getBuffer
-extern void getBuffer( int rank, int numranks, int filesize, int value );
+extern void getBuffer( int rank, int numranks, int filesize );
 
 /*
 * Function that returns the ticks at the momment in time
@@ -76,8 +76,8 @@ int main(int argc, char *argv[]) {
     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
     MPI_Comm_size(MPI_COMM_WORLD, &numranks);
 
-    // Allocate memory to buffer in CUDA and set all as 1
-    getBuffer(myrank, numranks, filesize, 1)
+    // Allocate memory to buffer in CUDA
+    getBuffer(myrank, numranks, filesize)
 
     // Calculate the total count of values in each block to write/read
     int block_count = filesize/sizeof(int);
@@ -127,9 +127,8 @@ int main(int argc, char *argv[]) {
     	printf("Time taken to perform write operation: %llu ticks\n", (write_finish - write_start));
     }
 
-    // Allocate memory to buffer in CUDA and set all as 0
-    // so it is replaced with 1 on reading
-    getBuffer(myrank, numranks, filesize, 0)
+    // Allocate memory to buffer in CUDA
+    getBuffer(myrank, numranks, filesize)
 
 	/*************************************************
     **************************************************

@@ -18,7 +18,7 @@
 // Buffer
 extern int *buf;
 
-extern "C" void getBuffer( int rank, int numranks, int filesize, int value)
+extern "C" void getBuffer( int rank, int numranks, int filesize )
 {
     // Check and assign the device for this MPI rank
 	cudaError_t cE;
@@ -37,5 +37,4 @@ extern "C" void getBuffer( int rank, int numranks, int filesize, int value)
 	}
 
 	cudaMallocManaged(&buf, filesize);
-    cudaMemset(buf, value, filesize);
 }
