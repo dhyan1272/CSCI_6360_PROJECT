@@ -1,7 +1,7 @@
 clc
 clear all
 close all
-A = double(imread('x2.jpg'));
+A = double(imread('x5.jpg'));
 A = A / 255;
 img_size = size(A);
 X = reshape(A, img_size(1) * img_size(2), 3);
