@@ -8,10 +8,13 @@
 #define Y 2		//Y dimesnion of the data //TODO NEED TO KNOW THE DATA SIZE BEFORE IMPORTING
 #define K 3		//NUMBER OF CLUSTERS TO DIVIDE THE DATA INTO
 #define MAX_ITERS 1  //NUMBER OF ITERATIONS
+#define blockSize 32
 
 double *num=NULL;
 double *centroids_c=NULL;
 int *idx=NULL;
+double *sum=NULL;
+int *count=NULL;
 
 __global__
 void findclosestcentroids(double* num, double* centroids_c, int* idx){
@@ -31,7 +34,6 @@ void findclosestcentroids(double* num, double* centroids_c, int* idx){
 					sum=sum+(*(num+x*Y+l)-*(centroids_c+j*Y+l))*(*(num+x*Y+l)-*(centroids_c+j*Y+l));
 			}
 			dist[j]=sqrt(sum);
-			//printf("Distance of %d %e\n", index, sum);
 		}
 		min_dist=dist[0];
 		min_ind=0;
@@ -46,20 +48,17 @@ void findclosestcentroids(double* num, double* centroids_c, int* idx){
 	}
 }
 
-//template <unsigned int blockSize>
-//note that double is slow in cuda as compared to real
-__global__ void reduce(double *g_idata, double *g_odata, int *g_odata_count, unsigned int n, int blockSize, int *idx, int cl, int m)
+__global__ void reduce(double *g_idata, double *g_odata, int *g_odata_count, const unsigned int m, const int *idx, const unsigned int cl)
 {
   unsigned int tid = threadIdx.x;
   unsigned int i = blockIdx.x*(blockSize*2) + tid;
   if (idx[i]==cl) {
-    extern __shared__ double sdata[];
-    extern __shared__ int sdata_count[];
-
-    //unsigned int tid = threadIdx.x;
-    //unsigned int i = blockIdx.x*(blockSize*2) + tid;
     unsigned int gridSize = blockSize*2*gridDim.x;
-    sdata[tid] = 0;
+    const unsigned int n = X*Y;
+    __shared__ double sdata[n];
+    __shared__ double sdata_count[n];
+
+    sdata[tid] = 0.0;
     sdata_count[tid] = 0;
 
     while (i < n) {
@@ -69,14 +68,9 @@ __global__ void reduce(double *g_idata, double *g_odata, int *g_odata_count, uns
     }
     __syncthreads();
 
-    if (blockSize >= 512) { if (tid < 256) { sdata[tid] += sdata[tid + 256]; sdata_count[tid] += sdata_count[tid + 256] ;} __syncthreads(); }
-    //if (blockSize >= 512) { if (tid < 256) { sdata[tid] += sdata[tid + 256]; } __syncthreads(); }
-
-    if (blockSize >= 256) { if (tid < 128) { sdata[tid] += sdata[tid + 128]; sdata_count[tid] += sdata_count[tid + 128]; } __syncthreads(); }
-    //if (blockSize >= 256) { if (tid < 128) { sdata[tid] += sdata[tid + 128]; } __syncthreads(); }
-
-    if (blockSize >= 128) { if (tid <   64) { sdata[tid] += sdata[tid +   64]; sdata_count[tid] += sdata_count[tid +   64]; } __syncthreads(); }
-    //if (blockSize >= 128) { if (tid <   64) { sdata[tid] += sdata[tid +   64]; } __syncthreads(); }
+    if (blockSize >= 512) {if (tid < 256) { sdata[tid] += sdata[tid + 256]; sdata_count[tid] += sdata_count[tid + 256] ;} __syncthreads(); }
+    if (blockSize >= 256) {if (tid < 128) { sdata[tid] += sdata[tid + 128]; sdata_count[tid] += sdata_count[tid + 128]; } __syncthreads(); }
+    if (blockSize >= 128) {if (tid < 64) { sdata[tid] += sdata[tid +   64]; sdata_count[tid] += sdata_count[tid +   64]; } __syncthreads(); }
     
     if (tid < 32) {
         if (blockSize >=  64) sdata[tid] += sdata[tid + 32];
@@ -99,24 +93,29 @@ __global__ void reduce(double *g_idata, double *g_odata, int *g_odata_count, uns
   }
 }
 
-void computeCentroids(double* num, int* idx, double* centroids, int blockSize, int n_blocks) {
-  int i, l, m, count;
-//  int j;
-  double sum[Y];
-  for (i=0; i<Y; i++) sum[i] = 0.0;
-  for (i=0; i<K; i++) {
-    count=0;
-    for (m=0; m<Y; m++) {
-      sum[m] = 0.0;
-      reduce<<< n_blocks, blockSize>>>(num, &sum[m], &count, X, blockSize, idx, i, m);
-//      for (j =0; j<X; j++) {
-//        if(idx[j]==i) count++;
-//	  for (l=0;l<Y;l++) sum[l]=sum[l]+ *(num+j*Y+l);
-//      }
-    }
+void computeCentroids(double* num, int* idx, double* centroids, int n_blocks) {
+  double sum_g = 0.0;
+  int count_g = 0;
+  cudaMallocManaged(&sum, sizeof(double)*n_blocks);
+  cudaMallocManaged(&count, sizeof(int)*n_blocks);
+  for (int i=0; i<K; i++) {
+    for (int m=0; m<Y; m++) {
+      for(int j=0; j <n_blocks; ++j) {
+	sum[j] = 0.0;
+	count[j] = 0;
+      }
+      reduce <<<n_blocks, blockSize>>> (num, sum, count, m, idx, i);
+      cudaDeviceSynchronize();
 
-    printf("sum1 %f, sum2 %f, count %d \n", sum[0], sum[1], count);
-    for (l=0;l<Y;l++) *(centroids+i*Y+l)=sum[l]/count;
+      //do blocksum
+      sum_g = 0.0; count_g = 0;
+      for(int j=0; j <n_blocks; ++j) {
+	sum_g += sum[j];
+	count_g += count[j];
+      }
+      printf("m = %d, sum=%f, count=%d \n", m, sum_g, count_g);
+      *(centroids+i*Y+m)=sum_g/count_g;
+    }
   }
 }
 
@@ -130,9 +129,8 @@ int main(){
 
 	double centroids[K][Y]={{3,3},{6,2},{8,5}};
 	double num1;
-	int i, j, n_blocks, no_of_threads;
-	no_of_threads=32;
-	n_blocks = (X*Y + no_of_threads - 1)/no_of_threads;
+	int i, j, n_blocks;
+	n_blocks = (X*Y + blockSize - 1)/blockSize;
 /*
 	if (no_of_threads==(X*Y))
         n_blocks = (X*Y)/no_of_threads; //calculation of number of blocks baseds on threadscounts and world size
@@ -168,9 +166,10 @@ int main(){
 	}
 
 	for (i=0;i<MAX_ITERS;i++){
-		findclosestcentroids<<< n_blocks, no_of_threads>>>(num, &centroids_c[0], &idx[0]);
+//question: why are we passing the global arrays as arguments??, the functions already have the info
+		findclosestcentroids <<<n_blocks, blockSize>>> (num, &centroids_c[0], &idx[0]);
 		cudaDeviceSynchronize();
-		computeCentroids(num, &idx[0], &centroids_c[0], no_of_threads, n_blocks);
+		computeCentroids(num, &idx[0], &centroids_c[0], n_blocks);
 	}
 	
 	//for (i=0;i<X;i++){
