@@ -16,12 +16,12 @@
 #include<cuda_runtime.h>
 
 // Buffer
-extern int *buf;
+extern long long *buf;
 
 /*
 * Returns the inialized buffer on CUDA
 */
-extern "C" void getBuffer( int rank, int numranks, int filesize )
+extern "C" void getBuffer( int rank, int numranks, long long blocksize )
 {
     // Check and assign the device for this MPI rank
 	cudaError_t cE;
@@ -40,5 +40,5 @@ extern "C" void getBuffer( int rank, int numranks, int filesize )
 	}
 
 	// Assign memory to the buf variable
-	cudaMallocManaged(&buf, filesize);
+	cudaMallocManaged(&buf, blocksize);
 }

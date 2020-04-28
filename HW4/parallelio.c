@@ -162,7 +162,7 @@ int main(int argc, char *argv[]) {
 
     MPI_Get_count(&status, MPI_LONG_LONG, &count);
     if (count != block_count) {
-        printf("Error reading from file.\n");
+        printf("Error reading data from file.\n");
     }
   }
 

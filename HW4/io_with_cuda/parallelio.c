@@ -17,10 +17,10 @@
 typedef unsigned long long ticks;
 
 // Buffer from CUDA
-int *buf;
+long long *buf;
 
 // Access getBuffer
-extern void getBuffer( int rank, int numranks, int filesize );
+extern void getBuffer( int rank, int numranks, long long blocksize );
 
 /*
 * Function that returns the ticks at the momment in time
@@ -53,9 +53,10 @@ int main(int argc, char *argv[]) {
 
   // Variables to track MPI rank and total ranks
   int myrank = 0;
-    int numranks = 0;
+  int numranks = 0;
+  int count = 0;
 
-    // MPI variables for file and status of reading
+  // MPI variables for file and status of reading
   MPI_File fh;
   MPI_Status status;
 
@@ -66,40 +67,40 @@ int main(int argc, char *argv[]) {
     exit(-1);
     }
 
-    // Assign value based on the provided value
-    int filesize = atoi(argv[1]);
+  // Assign value based on the provided value
+  long long blocksize = atoll(argv[1]);
 
   // Initialize MPI
-    MPI_Init(&argc, &argv);
+  MPI_Init(&argc, &argv);
 
-    // Get current rank and total number of ranks
-    MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
-    MPI_Comm_size(MPI_COMM_WORLD, &numranks);
+  // Get current rank and total number of ranks
+  MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
+  MPI_Comm_size(MPI_COMM_WORLD, &numranks);
 
-    // Allocate memory to buffer in CUDA
-    getBuffer(myrank, numranks, filesize);
+  // Allocate memory to buffer in CUDA
+  getBuffer(myrank, numranks, blocksize);
 
-    // Calculate the total count of values in each block to write/read
-    int block_count = filesize/sizeof(int);
+  // Calculate the total count of values in each block to write/read
+  long long block_count = blocksize/sizeof(long long);
 
-    // Set each value to be 1
-    for (int i=0; i<block_count; i++) { buf[i] = 1; }
+  // Set each value to be 1
+  for (long long i=0; i<block_count; i++) { buf[i] = 1; }
 
-    /*************************************************
-    **************************************************
-    ***************** WRITING TO FILE ****************
+  /*************************************************
   **************************************************
-    *************************************************/
+  ***************** WRITING TO FILE ****************
+  **************************************************
+  *************************************************/  
 
   // If rank is 0, start calculation using ticks
-    if (myrank == 0) {
-      write_start = getticks();
-    }
+  if (myrank == 0) {
+    write_start = getticks();
+  }
 
-    // Open the file in write mode. If it does not exist, create it first
-    MPI_File_open(MPI_COMM_WORLD, "datafile.txt", MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &fh);
- 
-   // Write the data for each block in accordance with the rank number
+  // Open the file in write mode. If it does not exist, create it first
+  MPI_File_open(MPI_COMM_WORLD, "datafile.txt", MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &fh);
+
+ // Write the data for each block in accordance with the rank number
   // If there are 64 ranks, the order of writing is:
   // Rank 0 - Block 0
   // Rank 1 - Block 0
@@ -111,40 +112,44 @@ int main(int argc, char *argv[]) {
   // .
   // .
   for (int i=0; i < 64; i++) {
-    int write_index = filesize*myrank + filesize*numranks*i; 
+    int write_index = blocksize*myrank + blocksize*numranks*i; 
     MPI_File_write_at(fh, write_index, buf, block_count, MPI_INT, &status);
+    MPI_Get_count(&status, MPI_LONG_LONG, &count);
+    if (count != block_count) {
+        printf("Error writing data to file.\n");  
+    }
   }
 
   // Add barrier
   MPI_Barrier(MPI_COMM_WORLD);
 
+  // After all blocks and rank writing, when rank is 0, print the total ticks
+  if (myrank == 0) {
+    write_finish = getticks();
+    printf("Time taken to perform write operation: %.3f seconds\n", (write_finish - write_start)/52000000.0f);
+  }
+
   // Close the file
-    MPI_File_close(&fh);
+  MPI_File_close(&fh);
 
-    // After all blocks and rank writing, when rank is 0, print the total ticks
-    if (myrank == 0) {
-      write_finish = getticks();
-      printf("Time taken to perform write operation: %llu ticks\n", (write_finish - write_start));
-    }
-
-    // Allocate memory to buffer in CUDA
-    getBuffer(myrank, numranks, filesize);
+  // Allocate memory to buffer in CUDA
+  getBuffer(myrank, numranks, blocksize);
 
   /*************************************************
-    **************************************************
-    *************** READING FROM FILE ****************
   **************************************************
-    *************************************************/
+  *************** READING FROM FILE ****************
+  **************************************************
+  *************************************************/
 
-    // If rank is 0, start calculation using ticks
-    if (myrank == 0) {
-      read_start = getticks();
-    }
+  // If rank is 0, start calculation using ticks
+  if (myrank == 0) {
+    read_start = getticks();
+  }
 
-    // Open the file in write mode. If it does not exist, create it first
-    MPI_File_open(MPI_COMM_WORLD, "datafile.txt", MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
+  // Open the file in write mode. If it does not exist, create it first
+  MPI_File_open(MPI_COMM_WORLD, "datafile.txt", MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
 
-    // Read in all the data using various ranks and blocks
+  // Read in all the data using various ranks and blocks
   // If there are 64 ranks, the order of reading is:
   // Rank 0 - Block 0
   // Rank 1 - Block 0
@@ -156,24 +161,28 @@ int main(int argc, char *argv[]) {
   // .
   // .
   for (int i = 0; i < 64; i++) {
-    int read_index = filesize*myrank + filesize*numranks*i; 
+    int read_index = blocksize*myrank + blocksize*numranks*i; 
     MPI_File_read_at(fh, read_index, buf, block_count, MPI_INT, &status);
+    MPI_Get_count(&status, MPI_LONG_LONG, &count);
+    if (count != block_count) {
+        printf("Error reading data from file.\n");  
+    }
   }
 
   // Add barrier
   MPI_Barrier(MPI_COMM_WORLD);
 
+  // After all blocks and rank writing, when rank is 0, print the total ticks
+  if (myrank == 0) {
+    read_finish = getticks();
+    printf("Time taken to perform read operation: %.3f seconds\n", (read_finish - read_start)/52000000.0f);
+  }
+
   // Close the file
   MPI_File_close(&fh);
 
-  // After all blocks and rank writing, when rank is 0, print the total ticks
-    if (myrank == 0) {
-      read_finish = getticks();
-      printf("Time taken to perform read operation: %llu ticks\n", (read_finish - read_start));
-    }
-
-    // Finalize MPI
+  // Finalize MPI
   MPI_Finalize();
 
-    return 0;
+  return 0;
 }
