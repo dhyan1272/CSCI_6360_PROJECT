@@ -34,7 +34,7 @@ extern "C" void getBuffer( int rank, int numranks, long long blocksize )
 	}
 
     // Set device given that it is available
-	if ((cE = cudaSetDevice(rank % cudaDeviceCount)) != cudaSuccess) {
+	if ((cE = cudaSetDevice(rank % 6)) != cudaSuccess) {
 		printf(" Unable to have rank %d set to cuda device %d, error is %d \n", rank, (rank % cudaDeviceCount), cE);
         exit(-1);
 	}
