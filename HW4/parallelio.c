@@ -56,7 +56,7 @@ int main(int argc, char *argv[]) {
   // Check if the required number of arguments were provided
   if( argc != 2 )
   {
-    printf("The code requires the argument for the block-size e.g. ./io 1024 \n");
+    printf("The code requires the argument for the size of each blocks e.g. ./io 1024 \n");
     exit(-1);
   }
 
