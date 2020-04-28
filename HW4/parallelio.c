@@ -48,6 +48,7 @@ int main(int argc, char *argv[]) {
   // Variables to track MPI rank and total ranks
   int myrank = 0;
   int numranks = 0;
+  int count = 0;
 
   // MPI variables for file and status of reading
   MPI_File fh;
@@ -79,9 +80,6 @@ int main(int argc, char *argv[]) {
   // Set each value to be 1
   for (long long i=0; i<block_count; i++) { buf[i] = 1; }
 
-  for (long long i =0; i<block_count; i++) { printf("%lld ", buf[i]); }
-  printf("\n");
-
   /*************************************************
    **************************************************
    ***************** WRITING TO FILE ****************
@@ -110,8 +108,11 @@ int main(int argc, char *argv[]) {
   for (int i=0; i < 64; i++) {
     long long write_index = blocksize*myrank + blocksize*numranks*i; 
     MPI_File_write_at(fh, write_index, buf, block_count, MPI_LONG_LONG, &status);
-  }
-
+    MPI_Get_count(&status, MPI_LONG_LONG, &count);
+    if (count != block_count) {
+        printf("Error writing data to file.\n");	
+    }
+}
   // Add barrier
   MPI_Barrier(MPI_COMM_WORLD);
 
@@ -158,6 +159,11 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < 64; i++) {
     long long read_index = blocksize*myrank + blocksize*numranks*i; 
     MPI_File_read_at(fh, read_index, buf, block_count, MPI_LONG_LONG, &status);
+
+    MPI_Get_count(&status, MPI_LONG_LONG, &count);
+    if (count != block_count) {
+        printf("Error reading from file.\n");
+    }
   }
 
   // Add barrier
