@@ -79,6 +79,9 @@ int main(int argc, char *argv[]) {
   // Set each value to be 1
   for (long long i=0; i<block_count; i++) { buf[i] = 1; }
 
+  for (long long i =0; i<block_count; i++) { printf("%lld ", buf[i]); }
+  printf("\n");
+
   /*************************************************
    **************************************************
    ***************** WRITING TO FILE ****************
@@ -112,14 +115,14 @@ int main(int argc, char *argv[]) {
   // Add barrier
   MPI_Barrier(MPI_COMM_WORLD);
 
-  // Close the file
-  MPI_File_close(&fh);
-
   // After all blocks and rank writing, when rank is 0, print the total ticks
   if (myrank == 0) {
     write_finish = getticks();
-    printf("Time taken to perform write operation: %llu seconds\n", (write_finish - write_start)/52000000);
+    printf("Time taken to perform write operation: %.3f seconds\n", (write_finish - write_start)/52000000.0f);
   }
+
+  // Close the file
+  MPI_File_close(&fh);
 
   // Free the buffer
   free(buf);
@@ -160,14 +163,14 @@ int main(int argc, char *argv[]) {
   // Add barrier
   MPI_Barrier(MPI_COMM_WORLD);
 
-  // Close the file
-  MPI_File_close(&fh);
-
   // After all blocks and rank writing, when rank is 0, print the total ticks
   if (myrank == 0) {
     read_finish = getticks();
-    printf("Time taken to perform read operation: %llu seconds\n", (read_finish - read_start)/52000000);
+    printf("Time taken to perform read operation: %.3f seconds\n", (read_finish - read_start)/52000000.0f);
   }
+
+  //Close the file
+  MPI_File_close(&fh);
 
   // Free the buffer
   free(buf);
