@@ -128,7 +128,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Allocate memory to buffer in CUDA
-    getBuffer(myrank, numranks, filesize)
+    getBuffer(myrank, numranks, filesize);
 
   /*************************************************
     **************************************************
