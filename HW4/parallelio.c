@@ -40,10 +40,10 @@ static __inline__ ticks getticks(void)
 int main(int argc, char *argv[]) {
 
   // Variables to track ticks for writing and reading
-  unsigned long long write_start = 0;
-  unsigned long long write_finish = 0;
-  unsigned long long read_start = 0;
-  unsigned long long read_finish = 0;
+  unsigned long long write_start = 0.0;
+  unsigned long long write_finish = 0.0;
+  unsigned long long read_start = 0.0;
+  unsigned long long read_finish = 0.0;
 
   // Variables to track MPI rank and total ranks
   int myrank = 0;
@@ -56,12 +56,12 @@ int main(int argc, char *argv[]) {
   // Check if the required number of arguments were provided
   if( argc != 2 )
   {
-    printf("The code requires the argument for the size of each blocks e.g. ./io 1024 \n");
+    printf("The code requires the argument for the size of each blocks e.g. ./parallelio-cuda-exe 1024 \n");
     exit(-1);
   }
 
   // Assign value based on the provided value
-  int blocksize = atoi(argv[1]);
+  long long blocksize = atoll(argv[1]);
 
   // Initialize MPI
   MPI_Init(&argc, &argv);
@@ -71,13 +71,13 @@ int main(int argc, char *argv[]) {
   MPI_Comm_size(MPI_COMM_WORLD, &numranks);
 
   // Allocate memory to buffer
-  int* buf = malloc(blocksize);
+  long long* buf = malloc(blocksize);
 
   // Calculate the total count of values in each block to write/read
-  int block_count = blocksize/sizeof(int);
+  long long block_count = blocksize/sizeof(long long);
 
   // Set each value to be 1
-  for (int i=0; i<block_count; i++) { buf[i] = 1; }
+  for (long long i=0; i<block_count; i++) { buf[i] = 1; }
 
   /*************************************************
    **************************************************
@@ -105,8 +105,8 @@ int main(int argc, char *argv[]) {
   // .
   // .
   for (int i=0; i < 64; i++) {
-    int write_index = blocksize*myrank + blocksize*numranks*i; 
-    MPI_File_write_at(fh, write_index, buf, block_count, MPI_INT, &status);
+    long long write_index = blocksize*myrank + blocksize*numranks*i; 
+    MPI_File_write_at(fh, write_index, buf, block_count, MPI_LONG_LONG, &status);
   }
 
   // Add barrier
@@ -118,7 +118,7 @@ int main(int argc, char *argv[]) {
   // After all blocks and rank writing, when rank is 0, print the total ticks
   if (myrank == 0) {
     write_finish = getticks();
-    printf("Time taken to perform write operation: %llu ticks\n", (write_finish - write_start));
+    printf("Time taken to perform write operation: %llu seconds\n", (write_finish - write_start)/52000000);
   }
 
   // Free the buffer
@@ -153,8 +153,8 @@ int main(int argc, char *argv[]) {
   // .
   // .
   for (int i = 0; i < 64; i++) {
-    int read_index = blocksize*myrank + blocksize*numranks*i; 
-    MPI_File_read_at(fh, read_index, buf, block_count, MPI_INT, &status);
+    long long read_index = blocksize*myrank + blocksize*numranks*i; 
+    MPI_File_read_at(fh, read_index, buf, block_count, MPI_LONG_LONG, &status);
   }
 
   // Add barrier
@@ -166,7 +166,7 @@ int main(int argc, char *argv[]) {
   // After all blocks and rank writing, when rank is 0, print the total ticks
   if (myrank == 0) {
     read_finish = getticks();
-    printf("Time taken to perform read operation: %llu ticks\n", (read_finish - read_start));
+    printf("Time taken to perform read operation: %llu seconds\n", (read_finish - read_start)/52000000);
   }
 
   // Free the buffer
