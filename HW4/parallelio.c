@@ -119,7 +119,7 @@ int main(int argc, char *argv[]) {
   // After all blocks and rank writing, when rank is 0, print the total ticks
   if (myrank == 0) {
     write_finish = getticks();
-    printf("Time taken to perform write operation: %.3f seconds\n", (write_finish - write_start)/52000000.0f);
+    printf("Time taken to perform write operation: %llu ticks\n", (write_finish - write_start));
   }
 
   // Close the file
@@ -172,7 +172,7 @@ int main(int argc, char *argv[]) {
   // After all blocks and rank writing, when rank is 0, print the total ticks
   if (myrank == 0) {
     read_finish = getticks();
-    printf("Time taken to perform read operation: %.3f seconds\n", (read_finish - read_start)/52000000.0f);
+    printf("Time taken to perform read operation: %llu ticks\n", (read_finish - read_start));
   }
 
   //Close the file
