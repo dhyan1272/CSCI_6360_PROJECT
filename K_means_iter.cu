@@ -52,64 +52,62 @@ void findclosestcentroids(double* num, double* centroids_c, int* idx, double* nu
 	}
 }
 
-__global__ void reduce(double *g_idata, int* g_idata_count, double *g_odata, int *g_odata_count, const unsigned int m, const int *idx, const unsigned int cl)
+__global__ void reduce(double *g_idata, int* g_idata_count, double *g_odata, int *g_odata_count, const unsigned int m)
 {
   unsigned int tid = threadIdx.x;
   unsigned int i = blockIdx.x*(blockSize*2) + tid;
-//  if (idx[i]==cl) {
-    unsigned int gridSize = blockSize*2*gridDim.x;
-    const unsigned int n = X*Y;
-    __shared__ double sdata[n];
-    __shared__ double sdata_count[n];
+  unsigned int gridSize = (blockSize*gridDim.x)/4;
+  //unsigned int gridSize = blockSize*2*gridDim.x;
+  const unsigned int n = X*Y;
+  const int size = blockSize*2;
+  __shared__ double sdata[size];
+  __shared__ double sdata_count[size];
 
-    sdata[tid] = 0.0;
-    sdata_count[tid] = 0;
+  sdata[tid] = 0.0;
+  sdata_count[tid] = 0;
 
-    while (i < n) {
-      sdata[tid] += *(g_idata+(i*Y+m)) + *(g_idata+(i*Y+m)+blockSize);
-      sdata_count[tid] += *(g_idata_count+(i*Y+m)) + *(g_idata_count+(i*Y+m)+blockSize); 
-      //sdata_count[tid] += 2; 
-      i += gridSize;
+  while (i < n) {
+    sdata[tid] += *(g_idata+(i*Y+m)) + *(g_idata+(i*Y+m)+blockSize);
+    sdata_count[tid] += *(g_idata_count+(i*Y+m)) + *(g_idata_count+(i*Y+m)+blockSize); 
+    i += gridSize;
     }
     __syncthreads();
 
     if (blockSize >= 512) {if (tid < 256) { sdata[tid] += sdata[tid + 256]; sdata_count[tid] += sdata_count[tid + 256] ;} __syncthreads(); }
     if (blockSize >= 256) {if (tid < 128) { sdata[tid] += sdata[tid + 128]; sdata_count[tid] += sdata_count[tid + 128]; } __syncthreads(); }
-    if (blockSize >= 128) {if (tid < 64) { sdata[tid] += sdata[tid + 64]; sdata_count[tid] += sdata_count[tid + 64]; } __syncthreads(); }
+    if (blockSize >= 128) {if (tid < 64)  { sdata[tid] += sdata[tid + 64];  sdata_count[tid] += sdata_count[tid +  64]; } __syncthreads(); }
     
     if (tid < 32) {
-        if (blockSize >=  64) sdata[tid] += sdata[tid + 32];
-        if (blockSize >=  32) sdata[tid] += sdata[tid + 16];
-        if (blockSize >=  16) sdata[tid] += sdata[tid +  8];
-        if (blockSize >=  8) sdata[tid] += sdata[tid +  4];
-        if (blockSize >=  4) sdata[tid] += sdata[tid +  2];
-        if (blockSize >=  2) sdata[tid] += sdata[tid +  1];
+      if (blockSize >=  64) sdata[tid] += sdata[tid + 32];
+      if (blockSize >=  32) sdata[tid] += sdata[tid + 16];
+      if (blockSize >=  16) sdata[tid] += sdata[tid +  8];
+      if (blockSize >=  8)  sdata[tid] += sdata[tid +  4];
+      if (blockSize >=  4)  sdata[tid] += sdata[tid +  2];
+      if (blockSize >=  2)  sdata[tid] += sdata[tid +  1];
 
-        if (blockSize >=  64) sdata_count[tid] += sdata_count[tid + 32];
-        if (blockSize >=  32) sdata_count[tid] += sdata_count[tid + 16];
-        if (blockSize >=  16) sdata_count[tid] += sdata_count[tid +  8];
-        if (blockSize >=  8) sdata_count[tid] += sdata_count[tid +  4];
-        if (blockSize >=  4) sdata_count[tid] += sdata_count[tid +  2];
-        if (blockSize >=  2) sdata_count[tid] += sdata_count[tid +  1];
-    }
+      if (blockSize >=  64) sdata_count[tid] += sdata_count[tid + 32];
+      if (blockSize >=  32) sdata_count[tid] += sdata_count[tid + 16];
+      if (blockSize >=  16) sdata_count[tid] += sdata_count[tid +  8];
+      if (blockSize >=  8)  sdata_count[tid] += sdata_count[tid +  4];
+      if (blockSize >=  4)  sdata_count[tid] += sdata_count[tid +  2];
+      if (blockSize >=  2)  sdata_count[tid] += sdata_count[tid +  1];
+  } 
 
-    if (tid == 0) g_odata[blockIdx.x] = sdata[0];
-    if (tid == 0) g_odata_count[blockIdx.x] = sdata_count[0];
-//  }
+  if (tid == 0) g_odata[blockIdx.x] = sdata[0];
+  if (tid == 0) g_odata_count[blockIdx.x] = sdata_count[0];
+  //printf("i=%d, tid=%d, blockId=%d, gridsize=%d \n", i, tid, blockIdx.x, gridSize);
 }
 
 void computeCentroids(double* num, int* idx, double* centroids, int n_blocks, double* num_in_clust, int* count_in_clust) {
   double sum_g = 0.0;
   int count_g = 0;
-  cudaMallocManaged(&sum, sizeof(double)*n_blocks);
-  cudaMallocManaged(&count, sizeof(int)*n_blocks);
   for (int i=0; i<K; i++) {
     for (int m=0; m<Y; m++) {
       for(int j=0; j <n_blocks; ++j) {
 	sum[j] = 0.0;
 	count[j] = 0;
       }
-      reduce <<<n_blocks, blockSize>>> (&num_in_clust[X*Y*i], &count_in_clust[X*Y*i], sum, count, m, idx, i);
+      reduce <<<n_blocks, blockSize>>> (&num_in_clust[X*Y*i], &count_in_clust[X*Y*i], &sum[0], &count[0], m);
       cudaDeviceSynchronize();
 
       //do blocksum
@@ -118,8 +116,8 @@ void computeCentroids(double* num, int* idx, double* centroids, int n_blocks, do
 	sum_g += sum[j];
 	count_g += count[j];
       }
-      printf("k=%d, m=%d, centroid=%f \n", i, m, sum_g/count_g);
-      *(centroids+i*Y+m)=sum_g/count_g;
+      *(centroids+i*Y+m)=sum_g/(count_g*1.0);
+      printf("k=%d, m=%d, centroid=%f , count=%d \n", i, m, *(centroids+i*Y+m), count_g);
     }
   }
 }
@@ -167,11 +165,24 @@ int main(){
 		}
 	}
 
-	for (i=0;i<MAX_ITERS;i++){
-		findclosestcentroids <<<n_blocks, blockSize>>> (num, &centroids_c[0], &idx[0], &num_in_clust[0], &count_in_clust[0]);
-		cudaDeviceSynchronize();
-		//for (j=0; j<K; ++j) printf("k=%d, count=%d\n", j, count_in_clust[j]);
-		computeCentroids(num, &idx[0], &centroids_c[0], n_blocks, num_in_clust, count_in_clust);
+        cudaMallocManaged(&sum, sizeof(double)*n_blocks);
+        cudaMallocManaged(&count, sizeof(int)*n_blocks);
+
+	for (i=0; i < MAX_ITERS; i++){
+	  for (j=0; j < X*Y*K; ++j) {
+	    num_in_clust[j] = 0.0;
+	    count_in_clust[j] = 0;
+	  }
+          findclosestcentroids <<<n_blocks, blockSize>>> (num, &centroids_c[0], &idx[0], &num_in_clust[0], &count_in_clust[0]);
+	  cudaDeviceSynchronize();
+	  computeCentroids(num, &idx[0], &centroids_c[0], n_blocks, num_in_clust, count_in_clust);
 	}
+	cudaFree(sum);
+	cudaFree(count);
+	cudaFree(num);
+	cudaFree(idx);
+	cudaFree(centroids_c);
+	cudaFree(num_in_clust);
+	cudaFree(count_in_clust);
 	return 0;
 }
