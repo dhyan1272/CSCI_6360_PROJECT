@@ -38,7 +38,6 @@ extern "C" void getBuffer( int rank, int numranks, long long blocksize )
 		printf(" Unable to have rank %d set to cuda device %d, error is %d \n", rank, (rank % cudaDeviceCount), cE);
         exit(-1);
 	}
-
 	// Assign memory to the buf variable
 	cudaMallocManaged(&buf, blocksize);
 }

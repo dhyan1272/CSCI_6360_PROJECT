@@ -112,7 +112,7 @@ int main(int argc, char *argv[]) {
   // .
   // .
   for (int i=0; i < 64; i++) {
-    int write_index = blocksize*myrank + blocksize*numranks*i; 
+    long long write_index = blocksize*myrank + blocksize*numranks*i; 
     MPI_File_write_at(fh, write_index, buf, block_count, MPI_LONG_LONG, &status);
     MPI_Get_count(&status, MPI_LONG_LONG, &count);
     if (count != block_count) {
@@ -161,7 +161,7 @@ int main(int argc, char *argv[]) {
   // .
   // .
   for (int i = 0; i < 64; i++) {
-    int read_index = blocksize*myrank + blocksize*numranks*i; 
+    long long read_index = blocksize*myrank + blocksize*numranks*i; 
     MPI_File_read_at(fh, read_index, buf, block_count, MPI_LONG_LONG, &status);
     MPI_Get_count(&status, MPI_LONG_LONG, &count);
     if (count != block_count) {
