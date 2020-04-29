@@ -1,0 +1,1 @@
+sbatch -N 1 --partition=dcs --ntasks-per-node=6 --gres=gpu:6 -t 30 ./slurmSpectrum.sh
