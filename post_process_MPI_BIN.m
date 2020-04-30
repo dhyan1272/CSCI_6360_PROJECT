@@ -3,7 +3,7 @@ clear all
 close all
 
 %Original Image
-A = double(imread('x3.jpg'));
+A = double(imread('x2.jpg'));
 A = A / 255; % Divide by 255 so that all values are in the range 0 - 1
 img_size = size(A);
 
@@ -11,9 +11,7 @@ img_size = size(A);
 fileID=fopen('output.bin');
 X_bin=fread(fileID,'double');
 fclose(fileID);
-for i=1:img_size(1) * img_size(2) 
-    X1(i,:)=X_bin((i-1)*3+1:3*i);
-end
+X1=reshape(X_bin', 3, img_size(1)*img_size(2)).';
 A2 = reshape(X1, img_size(1), img_size(2), 3);
 
 %Display original image

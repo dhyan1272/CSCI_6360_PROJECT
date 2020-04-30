@@ -7,90 +7,26 @@
 #include<string.h>
 #include<math.h>
 
-#define X 331240 			//X dimession of the data 
+#define X 1049088			//X dimession of the data 
 #define Y 3				//Y dimesnion of the data //TODO NEED TO KNOW THE DATA SIZE BEFORE IMPORTING
-#define K 14				//NUMBER OF CLUSTERS TO DIVIDE THE DATA INTO
-#define MAX_ITERS 1  	//NUMBER OF ITERATIONS
+#define K 3				//NUMBER OF CLUSTERS TO DIVIDE THE DATA INTO
+#define MAX_ITERS 10  	//NUMBER OF ITERATIONS
 
-double *num=NULL;
-double *centroids_c=NULL;
-double *centroids_cresult=NULL;
-int *idx=NULL;
+double *num;
+double *centroids_c;
+double *centroids_cresult;
+int *idx;
 
-
-void findclosestcentroids(double *num, double *centroids_c, int* idx, int each_chunk){
-
-	int i, j, l, min_ind; 
-	double sum, dist[K],min_dist;
-	
-	for (i=0;i<each_chunk;i++){
-		for (j=0;j<K;j++){
-			sum=0;
-			for (l=0;l<Y;l++){
-
-				sum=sum+(*(num+i*Y+l)-*(centroids_c+j*Y+l))*(*(num+i*Y+l)-*(centroids_c+j*Y+l));
-			}
-			//printf("Distance %e\n",sum);
-			dist[j]=sqrt(sum);
-
-		}
-		min_dist=dist[0];
-		min_ind=0;
-		for (j=0; j<K; j++){
-			if (dist[j]<min_dist) {
-				min_dist=dist[j];
-				min_ind=j;
-			}
-		}
-	*(idx+i)=min_ind;
-	//printf("Index is %d \n",*(idx+i));
-	}
-
-}
-
-void computeCentroids(double* num, int* idx, double* centroids_c, int each_chunk){
-
-	int i,j, l, m, count;
-	double sum[Y];
-	for(i=0;i<Y;i++) //sum[i]=0.0;
-
-	for (i=0;i<K;i++){
-
-		count=0;
-		for(m=0;m<Y;m++) sum[m]=0.0;
-
-		for(j =0; j<each_chunk; j++){
-
-			if(idx[j]==i){
-
-					count++;
-					for (l=0;l<Y;l++){
-
-						sum[l]=sum[l]+ *(num+j*Y+l);
-						//printf("Sum is %e \n",sum[l]);
-					
-					}
-			
-			}
-
-		}
-		if (count==0) continue; 
-		for (l=0;l<Y;l++){
-
-			*(centroids_c+i*Y+l)=sum[l]/count;
-			//printf ("Centroids counts  %e %d ",*(centroids_c+i*Y+l), count );							
-		}
-
-	printf("\n");
-	} 
-
-}
+void k_means_kernel_launch(double*, double*, int*, int, int, int);
+void cuda_init(int, int, int);
+void cuda_free();
+void assign(double*, double*, int*, int, int, int);
 
 int main(int argc, char *argv[]){
 
 
 	int myrank, numranks, result;
-	int i,each_chunk,j,k;
+	int i,each_chunk,j,k, no_of_threads,n_blocks;
     double starttime, endtime;
    
     MPI_Init(&argc, &argv);
@@ -100,19 +36,17 @@ int main(int argc, char *argv[]){
     MPI_Status status;
     MPI_File fh;
 
-
-
     each_chunk=X/numranks;
 	if(myrank==numranks-1)
 		each_chunk=each_chunk+X%numranks;
-	//printf("Each chunk %d \n", each_chunk);
 
-    num=(double*)calloc(each_chunk*Y, sizeof(double));
-	centroids_c=(double*)calloc(K*Y,sizeof(double));
-	centroids_cresult=(double*)calloc(K*Y,sizeof(double));
-	idx=(int*)calloc(each_chunk,sizeof(int));
-	
+	no_of_threads=32;
+	if (no_of_threads==each_chunk)
+        n_blocks = each_chunk/no_of_threads; //calculation of number of blocks baseds on threadscounts and world size
+    else 
+        n_blocks = each_chunk/no_of_threads+1;
 
+    cuda_init(each_chunk, myrank, numranks);
 
 	result=MPI_File_open(MPI_COMM_WORLD, "input.bin", MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
 		if(result != MPI_SUCCESS) {printf("Error in opening the file\n"); exit(-1);}
@@ -120,18 +54,11 @@ int main(int argc, char *argv[]){
 	result=MPI_File_read_at(fh, myrank*each_chunk*Y*sizeof(double), num, each_chunk*Y, MPI_DOUBLE, &status);
 		if(result != MPI_SUCCESS) {printf("Error in reading the file\n"); exit(-1);}
 	
-		/*
-		if (myrank==1)	
-			for (i=each_chunk;i<each_chunk*Y;i++){
-				printf("The read numbers are %e \n", *(num+i));
-			}
-		*/
-
 	MPI_Barrier(MPI_COMM_WORLD);
 	MPI_File_close(&fh);
 
-	if (myrank==0)
-	{	
+	if (myrank==0){
+
 		int lower =0;
 		int upper =each_chunk-1;
 		srand(time(0));
@@ -149,26 +76,44 @@ int main(int argc, char *argv[]){
 
 	}
 
-
 	MPI_Bcast(centroids_c, K*Y, MPI_DOUBLE, 0, MPI_COMM_WORLD);
  
-    findclosestcentroids((double *)num, (double *)centroids_c, &idx[0],each_chunk);
-    computeCentroids((double *)num, &idx[0], (double *)centroids_c, each_chunk);
-    MPI_Barrier(MPI_COMM_WORLD);
-    MPI_Allreduce(centroids_c, centroids_cresult, K*Y, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    for (i=0;i<MAX_ITERS;i++){
 
 
+   		k_means_kernel_launch(num, centroids_c,idx,each_chunk, n_blocks, no_of_threads);
+	    MPI_Barrier(MPI_COMM_WORLD);
+	    MPI_Allreduce(centroids_c, centroids_cresult, K*Y, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+	   	for (int a=0; a<K;a++){
+			
+			for (int b=0;b<Y;b++){
+
+					*(centroids_c+a*Y+b)=*(centroids_cresult+a*Y+b)/numranks;
+	
+				}
+	
+		}
+
+
+	    //double* temp;
+	    //temp=centroids_cresult;
+	    //centroids_cresult=centroids_c;
+	    //centroids_cresult=temp;
+    }
+    
+	//if(!myrank)
     for (i=0; i<K;i++){
 		
 		for (k=0;k<Y;k++){
 
-			printf ("Centroids %e",*(centroids_cresult+i*Y+k)/numranks);
+			printf ("Centroids %d new %e", myrank, *(centroids_c+i*Y+k));
 		}
 		printf("\n");
 	}
-    		
-
-
+    	
+   
+    /*
 
     for (i=0; i<each_chunk;i++){
 		//printf("%d==%d\n",i+1, idx[i]+1);
@@ -185,6 +130,9 @@ int main(int argc, char *argv[]){
 		}
 
 	}
+	*/
+	//Parallelizing the above operation.
+	assign(num, centroids_c, idx, each_chunk, n_blocks, no_of_threads);
 
 
    	result=MPI_File_open(MPI_COMM_WORLD, "output.bin",  MPI_MODE_CREATE|MPI_MODE_RDWR, MPI_INFO_NULL, &fh);
@@ -197,10 +145,8 @@ int main(int argc, char *argv[]){
 	MPI_Barrier(MPI_COMM_WORLD);
 	MPI_File_close(&fh);
 
+	cuda_free(num, centroids_c, centroids_cresult, idx);
+
     MPI_Finalize();
-    free(num);
-    free(centroids_c);
-    free(centroids_cresult);
-    free(idx);
 	return 0;
 }
