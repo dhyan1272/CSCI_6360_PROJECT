@@ -19,7 +19,7 @@ int *idx;
 
 void k_means_kernel_launch(double*, double*, int*, int, int, int);
 void cuda_init(int, int, int);
-void cuda_free();
+void cuda_free(double*, double*, double*, int*);
 void assign(double*, double*, int*, int, int, int);
 
 int main(int argc, char *argv[]){
