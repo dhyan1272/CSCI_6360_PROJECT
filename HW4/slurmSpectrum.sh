@@ -22,5 +22,5 @@ module load gcc/7.4.0/1
 module load spectrum-mpi
 module load cuda
 
-mpirun -hostfile /tmp/hosts.$SLURM_JOB_ID -np $SLURM_NPROCS ~/scratch/CSCI_6360_PROJECT/HW4/parallelio.o 16000000 
+mpirun -hostfile /tmp/hosts.$SLURM_JOB_ID -np $SLURM_NPROCS parallelio.o 16000000 
 rm /tmp/hosts.$SLURM_JOB_ID
