@@ -12,6 +12,21 @@ double *num=NULL;
 double *centroids_c=NULL;
 int *idx=NULL;
 
+typedef unsigned long long ticks;
+
+static __inline__ ticks getticks(void)
+{
+  unsigned int tbl, tbu0, tbu1;
+
+  do {
+    __asm__ __volatile__ ("mftbu %0" : "=r"(tbu0));
+    __asm__ __volatile__ ("mftb %0" : "=r"(tbl));
+    __asm__ __volatile__ ("mftbu %0" : "=r"(tbu1));
+  } while (tbu0 != tbu1);
+
+  return (((unsigned long long)tbu0) << 32) | tbl;
+}
+
 __global__
 void findclosestcentroids(double* num, double* centroids_c, int* idx){
 
@@ -92,6 +107,10 @@ void computeCentroids(double* num, int* idx, double* centroids_c){
 
 int main(){
 
+	// Define variables to keep track of time
+	unsigned long long start = 0;
+	unsigned long long finish = 0;
+
 	FILE *fp, *fw;
 
 	int lower =0;
@@ -128,6 +147,11 @@ int main(){
 		//printf("\n");
 	}
 	fclose(fp);
+
+	// Starting K-Means clustering
+
+	// Let us start calculation of time
+	start = getticks();
 
 	for (i = 0; i < K; i++) {
 
@@ -182,6 +206,13 @@ int main(){
 		}
 
 	}
+
+	// KMeans algorithm completed
+
+	// Close timer and print total time taken
+	finish = getticks();
+	printf("Total time taken to run K-Means on %d pixel image with %d clusters is %llu seconds.\n", X, K, (finish-start)/512000000.0f);
+
 	fw=fopen("output.txt","w");
 	
 	for(i=0; i<X;i++){

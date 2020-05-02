@@ -22,8 +22,26 @@ void cuda_init(int, int, int);
 void cuda_free(double*, double*, double*, int*);
 void assign(double*, double*, int*, int, int, int);
 
+typedef unsigned long long ticks;
+
+static __inline__ ticks getticks(void)
+{
+  unsigned int tbl, tbu0, tbu1;
+
+  do {
+    __asm__ __volatile__ ("mftbu %0" : "=r"(tbu0));
+    __asm__ __volatile__ ("mftb %0" : "=r"(tbl));
+    __asm__ __volatile__ ("mftbu %0" : "=r"(tbu1));
+  } while (tbu0 != tbu1);
+
+  return (((unsigned long long)tbu0) << 32) | tbl;
+}
+
 int main(int argc, char *argv[]){
 
+	// Define variables to keep track of time
+	unsigned long long start = 0;
+	unsigned long long finish = 0;
 
 	int myrank, numranks, result;
 	int i,each_chunk,j,k, no_of_threads,n_blocks;
@@ -57,7 +75,12 @@ int main(int argc, char *argv[]){
 	MPI_Barrier(MPI_COMM_WORLD);
 	MPI_File_close(&fh);
 
+	// Starting K-Means clustering
+
 	if (myrank==0){
+
+		// Let us start calculation of time
+		start = getticks();
 
 		int lower =0;
 		int upper =each_chunk-1;
@@ -133,6 +156,16 @@ int main(int argc, char *argv[]){
 	*/
 	//Parallelizing the above operation.
 	assign(num, centroids_c, idx, each_chunk, n_blocks, no_of_threads);
+
+	MPI_Barrier(MPI_COMM_WORLD);
+
+	// KMeans algorithm completed
+	
+	if (myrank == 0) {
+		// Close timer and print total time taken
+		finish = getticks();
+		printf("Total time taken to run K-Means on %d pixel image with %d clusters is %llu seconds.\n", X, K, (finish-start)/512000000.0f);
+	}
 
 
    	result=MPI_File_open(MPI_COMM_WORLD, "output.bin",  MPI_MODE_CREATE|MPI_MODE_RDWR, MPI_INFO_NULL, &fh);
