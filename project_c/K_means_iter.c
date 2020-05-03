@@ -2,12 +2,13 @@
 #include<stdlib.h>
 #include<math.h>
 #include<time.h>
-#define X 16384   //X dimession of the data 
+#define X 13307904  //X dimession of the data 
 #define Y 3			//Y dimesnion of the data //TODO NEED TO KNOW THE DATA SIZE BEFORE IMPORTING
-#define K 2			//NUMBER OF CLUSTERS TO DIVIDE THE DATA INTO
-#define MAX_ITERS 5  //NUMBER OF ITERATIONS
+#define K 4			//NUMBER OF CLUSTERS TO DIVIDE THE DATA INTO
+#define MAX_ITERS 10  //NUMBER OF ITERATIONS
 double *num;
 double* centroids;
+int* idx;
 
 typedef unsigned long long ticks;
 
@@ -95,7 +96,8 @@ void main(){
 	int i, j,k,rnd_num;
 	num=(double*)calloc(X*Y, sizeof(double));
 	centroids=(double*)calloc(K*Y,sizeof(double));
-	int    idx[X];
+	idx=(int*)calloc(X,sizeof(int));
+	//int    idx[X];
 	int lower=0;
 	int upper =X-1;
 	srand(time(0));
@@ -168,7 +170,7 @@ void main(){
 
 	// Close timer and print total time taken
 	finish = getticks();
-	printf("Total time taken to run K-Means on %d pixel image with %d clusters is %llu seconds.\n", X, K, (finish-start)/512000000.0f);
+	printf("Total time taken to run K-Means on %d pixel image with %d clusters is %e seconds.\n", X, K, (finish-start)/512000000.0f);
 
 	fw=fopen("output.txt","w");
 	
@@ -185,5 +187,6 @@ void main(){
 	fclose(fw);
 	free (num);
 	free (centroids);
+	free(idx);
 	
 }
