@@ -1,3 +1,0 @@
-This program reads image "sky.jpg", converts it to grayscale and writes the new file "sky_gray.jpg"
-compile: source build.sh
-run: ./imageReadWrite

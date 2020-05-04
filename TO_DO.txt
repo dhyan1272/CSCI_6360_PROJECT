@@ -1,6 +1,0 @@
-1. Test and compare C code results with MATLAB
-2. Implement CUDA
-3. Implement MPI+CUDA for multi-GPUs
-4. Implement Parallel I/O
-5. Run strong and weak scaling studies
-6. Write report
